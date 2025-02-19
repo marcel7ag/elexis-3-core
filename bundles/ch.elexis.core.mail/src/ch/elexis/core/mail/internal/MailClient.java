@@ -312,13 +312,16 @@ public class MailClient implements IMailClient {
 				multipart.addBodyPart(messageBodyPart);
 
 				if (message.hasImage()) {
-					File image = message.getImage();
-					if (image != null) {
-						messageBodyPart = new MimeBodyPart();
-						DataSource source = new FileDataSource(image);
-						messageBodyPart.setDataHandler(new DataHandler(source));
-						messageBodyPart.setHeader("Content-ID", message.getImageContentId());
-						multipart.addBodyPart(messageBodyPart);
+					List<File> images = message.getImages();
+					for (File image : images) {
+						if (image != null) {
+							messageBodyPart = new MimeBodyPart();
+							DataSource source = new FileDataSource(image);
+							messageBodyPart.setDataHandler(new DataHandler(source));
+							messageBodyPart.setHeader("Content-ID",
+									image.getName().substring(0, image.getName().length() - 4));
+							multipart.addBodyPart(messageBodyPart);
+						}
 					}
 				}
 

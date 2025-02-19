@@ -2,18 +2,20 @@ package ch.elexis.core.mail;
 
 import java.io.File;
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+
 
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.LoggerFactory;
 
 import com.google.gson.Gson;
-
 import ch.elexis.core.model.IImage;
 import ch.elexis.core.services.IQuery;
 import ch.elexis.core.services.IQuery.COMPARATOR;
+import ch.elexis.core.services.holder.ContextServiceHolder;
 import ch.elexis.core.services.holder.CoreModelServiceHolder;
 import jakarta.mail.internet.AddressException;
 import jakarta.mail.internet.InternetAddress;
@@ -60,7 +62,7 @@ public class MailMessage implements Serializable {
 
 	private String documentsString;
 
-	private String imageString;
+	private String imagesString;
 
 	/**
 	 * Set the to address.
@@ -174,23 +176,40 @@ public class MailMessage implements Serializable {
 	}
 
 	private void parseImage() {
-		if (StringUtils.isNotEmpty(text) && text.indexOf("<img src=\"") != -1) {
-			StringBuilder sb = new StringBuilder();
-			char[] characters = text.substring(text.indexOf("<img src=\"")).toCharArray();
-			for (char c : characters) {
-				sb.append(c);
-				if (c == '>') {
-					break;
-				}
-			}
-			if (sb.toString().endsWith(">")) {
-				imageString = sb.toString();
-				if (!loadImage().isPresent()) {
-					LoggerFactory.getLogger(getClass()).warn("Image for [" + imageString + "] not found");
-				}
-			}
-		}
+		if (StringUtils.isNotEmpty(text) && text.contains("<img src=\"")) {
+			StringBuilder imageBuilder = new StringBuilder();
+	        int index = 0;
+
+	        while ((index = text.indexOf("<img src=\"", index)) != -1) {
+	            StringBuilder sb = new StringBuilder();
+	            char[] characters = text.substring(index).toCharArray();
+	            for (char c : characters) {
+	                sb.append(c);
+	                if (c == '>') {
+	                    break;
+	                }
+	            }
+	            if (sb.toString().endsWith(">")) {
+					if (imageBuilder.length() > 0) {
+						imageBuilder.append(":::"); // Separator between multiple images
+					}
+					imageBuilder.append(sb.toString());
+	            }
+	            index += sb.length();
+	        }
+
+			imagesString = imageBuilder.toString(); // Store all images as a single string
+
+			if (StringUtils.isNotBlank(imagesString)) {
+				for (String img : imagesString.split(":::")) {
+					if (!loadImage(img).isPresent()) {
+						LoggerFactory.getLogger(getClass()).warn("Image for [" + img + "] not found");
+					}
+	            }
+	        }
+	    }
 	}
+
 
 	/**
 	 * Test if the message has attachments.
@@ -233,25 +252,35 @@ public class MailMessage implements Serializable {
 	}
 
 	public boolean hasImage() {
-		return StringUtils.isNotBlank(imageString) && loadImage().isPresent();
+		return StringUtils.isNotBlank(imagesString);
 	}
 
-	private Optional<IImage> loadImage() {
+	private Optional<IImage> loadImage(String id) {
+		if (getImageContentId(id).equalsIgnoreCase("AppointmentQRCode")) {
+			Optional<IImage> qr = (Optional<IImage>) ContextServiceHolder.get().getNamed("TerminQRCode");
+			if (!qr.isPresent()) {
+				return Optional.empty();
+			}
+			return Optional.of(qr.get());
+		}
 		IQuery<IImage> query = CoreModelServiceHolder.get().getQuery(IImage.class);
-		query.and("prefix", COMPARATOR.EQUALS, "ch.elexis.core.mail");
-		query.and("title", COMPARATOR.LIKE, getImageContentId() + "%");
+		query.and("title", COMPARATOR.LIKE, getImageContentId(id) + "%");
 		return query.executeSingleResult();
 	}
 
-	public File getImage() {
-		Optional<IImage> image = loadImage();
-		if (image.isPresent()) {
-			return AttachmentsUtil.getAttachmentsFile(image.get());
+	public List<File> getImages() {
+		List<File> list = new ArrayList<File>();
+		for (String cid : imagesString.split(":::")) {
+			Optional<IImage> image = loadImage(cid);
+			if (image.isPresent()) {
+				list.add(AttachmentsUtil.getAttachmentsFile(image.get()));
+			}
 		}
-		return null;
+		return list;
 	}
 
-	public String getImageContentId() {
-		return imageString.substring(imageString.indexOf("cid:") + "cid:".length(), imageString.length() - 2);
+	public String getImageContentId(String id) {
+		return id.substring(id.indexOf("cid:") + "cid:".length(), id.length() - 2);
 	}
+
 }
