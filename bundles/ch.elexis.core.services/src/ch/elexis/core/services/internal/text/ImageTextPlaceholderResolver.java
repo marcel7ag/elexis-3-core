@@ -38,6 +38,8 @@ public class ImageTextPlaceholderResolver implements ITextPlaceholderResolver {
 			switch (imageAttribut) {
 			case MailPraxisLogo:
 				return "<img src=\"cid:elexismailpraxislogo\">";
+			case AppointmentQRCode:
+				return "<img src=\"cid:appointmentqrcode\">";
 			default:
 				return null;
 			}
@@ -46,7 +48,8 @@ public class ImageTextPlaceholderResolver implements ITextPlaceholderResolver {
 	}
 
 	private enum ImageAttribute implements ILocalizedEnum {
-		MailPraxisLogo("Ein Praxis Logo für e-mails");
+		MailPraxisLogo("Ein Praxis Logo für e-mails"),
+		AppointmentQRCode("QR-Code vom Termin");
 
 		final String description;
 
