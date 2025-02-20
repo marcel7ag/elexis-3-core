@@ -257,7 +257,7 @@ public class MailMessage implements Serializable {
 
 	private Optional<IImage> loadImage(String id) {
 		if (getImageContentId(id).equalsIgnoreCase("AppointmentQRCode")) {
-			Optional<IImage> qr = (Optional<IImage>) ContextServiceHolder.get().getNamed("TerminQRCode");
+			Optional<IImage> qr = (Optional<IImage>) ContextServiceHolder.get().getNamed("AppointmentQRCode");
 			if (!qr.isPresent()) {
 				return Optional.empty();
 			}
